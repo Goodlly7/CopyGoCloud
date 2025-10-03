@@ -1,97 +1,64 @@
 <!doctype html>
 <html lang="ru">
-<meta charset="utf-8" />
-<title>CopyGo → Google Drive (server upload)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<style>
-  body{font-family:system-ui,Arial,sans-serif;background:#0b1020;color:#e6f0ff;margin:0;padding:24px}
-  .card{max-width:880px;margin:auto;background:#0f1a36;border:1px solid #24315d;border-radius:16px;padding:20px}
-  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .drop{border:2px dashed #40507e;border-radius:12px;height:200px;display:grid;place-items:center;margin:12px 0;color:#a9b7d9}
-  button{background:#2563eb;border:none;color:#fff;padding:10px 14px;border-radius:10px;cursor:pointer}
-  button:disabled{opacity:.7;cursor:not-allowed}
-  .item{background:#111a3a;border:1px solid #283867;border-radius:10px;padding:10px;margin:8px 0}
-  .bar{height:6px;border-radius:999px;background:#1d2853;overflow:hidden}
-  .bar>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#60a5fa,#7c3aed)}
-  .ok{color:#10b981}.err{color:#ef4444}
-</style>
-<div class="card">
-  <h2>CopyGo Uploader</h2>
-  <div class="row">
-    <label>SID: <input id="sid" value="TEST123" /></label>
-    <button id="choose">Выбрать файлы</button>
-    <button id="upload" disabled>Загрузить</button>
+<head>
+  <meta charset="utf-8" />
+  <title>CopyGo → Google Drive</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:40px;max-width:720px}
+    .box{border:1px solid #ddd;border-radius:12px;padding:16px}
+    .row{margin:10px 0}
+    button{padding:10px 16px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer}
+    input[type=file]{padding:6px}
+    pre{background:#111;color:#b7ffb7;padding:12px;border-radius:10px;overflow:auto}
+  </style>
+</head>
+<body>
+  <h1>CopyGo → Google Drive</h1>
+  <div class="box">
+    <div class="row">
+      SID: <input id="sid" style="width:220px" />
+      <button id="gen">Новый SID</button>
+    </div>
+    <div class="row">
+      <input id="file" type="file" multiple />
+      <button id="send">Загрузить</button>
+    </div>
+    <pre id="log"></pre>
   </div>
-  <input type="file" id="picker" multiple style="display:none"
-     accept=".jpg,.jpeg,.png,.bmp,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt" />
-  <div class="drop" id="drop">Перетащите файлы сюда</div>
-  <div id="list"></div>
-  <pre id="log" style="white-space:pre-wrap;background:#0b1020;border:1px solid #24315d;padding:10px;border-radius:10px"></pre>
-</div>
+
 <script>
-const MAX_SIZE = 100 * 1024 * 1024;
-const ALLOWED = /\.(jpg|jpeg|png|bmp|pdf|docx?|pptx?|xlsx?|txt)$/i;
-const sidEl = document.getElementById('sid');
-const choose = document.getElementById('choose');
-const upload = document.getElementById('upload');
-const picker = document.getElementById('picker');
-const drop = document.getElementById('drop');
-const list = document.getElementById('list');
-const logEl = document.getElementById('log');
-const files = [];
+const $ = (s)=>document.querySelector(s);
+const log = (m)=>{ $('#log').textContent += (typeof m==='string'?m:JSON.stringify(m)) + '\n'; };
 
-function log(m){ logEl.textContent += (typeof m==='string'?m:JSON.stringify(m))+"\n"; }
-function addItem(f){
-  const el = document.createElement('div'); el.className='item';
-  el.innerHTML = `<div>${f.name} <span style="opacity:.7;font-size:12px">(${Math.round(f.size/1024)} КБ)</span></div>
-                  <div class="bar"><i></i></div>
-                  <div class="st" style="font-size:12px;color:#a9b7d9">ожидание…</div>`;
-  list.appendChild(el);
-  return { bar: el.querySelector('.bar>i'), st: el.querySelector('.st') };
-}
-function onPickedFiles(arr){
-  for (const f of arr){
-    if (!ALLOWED.test(f.name)){ log('Пропуск: '+f.name+' (тип)'); continue; }
-    if (f.size > MAX_SIZE){ log('Пропуск: '+f.name+' (>100МБ)'); continue; }
-    const ui = addItem(f); f._ui = ui; files.push(f);
-  }
-  upload.disabled = files.length===0;
-}
-choose.onclick = () => picker.click();
-picker.onchange = () => onPickedFiles([...picker.files]);
-['dragenter','dragover','dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();ev.stopPropagation();}));
-drop.addEventListener('drop', ev => onPickedFiles([...ev.dataTransfer.files]));
+const sp = new URLSearchParams(location.search);
+$('#sid').value = sp.get('sid') || (Date.now().toString());
 
-upload.onclick = async () => {
-  const sid = sidEl.value.trim(); if (!sid){ alert('SID обязателен'); return; }
-  upload.disabled = true;
-  try{
-    for (const f of files){
-      f._ui.st.textContent = 'загрузка…';
-      const fd = new FormData();
-      fd.append('file', f, f.name);
-      await send(fd, sid, p => f._ui.bar.style.width = p+'%');
-      f._ui.st.textContent = 'готово ✓'; f._ui.st.classList.add('ok');
+$('#gen').onclick = () => { $('#sid').value = Date.now().toString(); };
+
+$('#send').onclick = async () => {
+  const sid = $('#sid').value.trim();
+  const files = $('#file').files;
+  if (!sid) return alert('SID пустой');
+  if (!files.length) return alert('Выбери файлы');
+
+  for (const f of files) {
+    const fd = new FormData();
+    fd.append('file', f, f.name);
+    try {
+      const r = await fetch(`/upload?sid=${encodeURIComponent(sid)}`, {
+        method: 'POST',
+        body: fd
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      log(`OK: ${f.name}`);
+      log(data);
+    } catch(e) {
+      log(`ERR: ${f.name} -> ${e.message||e}`);
     }
-    log('Все файлы отправлены');
-  }catch(e){
-    log('Ошибка: '+e.message);
-  }finally{
-    upload.disabled = false;
   }
 };
-
-function send(fd, sid, onProgress){
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload?sid='+encodeURIComponent(sid));
-    xhr.responseType = 'json';
-    xhr.upload.onprogress = ev => {
-      if (ev.lengthComputable && onProgress) onProgress(Math.round(100*ev.loaded/ev.total));
-    };
-    xhr.onerror = () => reject(new Error('network_error'));
-    xhr.onload = () => (xhr.status>=200 && xhr.status<300) ? resolve(xhr.response) : reject(new Error('http_'+xhr.status));
-    xhr.send(fd);
-  });
-}
 </script>
+</body>
+</html>
