@@ -1,43 +1,42 @@
 import express from 'express';
 import Busboy from 'busboy';
-import { google } from 'googleapis';
+import { GoogleAuth } from 'google-auth-library';
+import { drive_v3, drive as driveApi } from '@googleapis/drive';
 
 const app = express();
 
-// --- CORS (простой и достаточный) ---
+// ---- CORS (проще всего) ----
 app.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
-// --- health ---
+// ---- Health ----
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// --- статика и главная страница ---
+// ---- Отдаём UI ----
 app.use(express.static('public'));
 app.get('/', (_req, res) => res.redirect('/upload.html'));
 
-// === Google Drive helpers ===
+// ---- Google Drive helpers ----
 async function makeDrive() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!raw) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not set');
 
   const creds = JSON.parse(raw);
-  // Если ключ пришёл с \n — превращаем в реальные переводы строки
-  if (creds.private_key && creds.private_key.includes('\\n')) {
+  // На случай, если private_key пришёл как \\n — превращаем в реальные переводы строки
+  if (creds.private_key?.includes('\\n')) {
     creds.private_key = creds.private_key.replace(/\\n/g, '\n');
   }
-
-  const auth = new google.auth.GoogleAuth({
+  const auth = new GoogleAuth({
     credentials: creds,
     scopes: ['https://www.googleapis.com/auth/drive']
   });
-
   const client = await auth.getClient();
-  return google.drive({ version: 'v3', auth: client });
+  return driveApi({ version: 'v3', auth: client });
 }
 
 function escapeForQuery(s) {
@@ -55,12 +54,11 @@ async function ensureFolder(drive, name, parentId) {
 
   const meta = { name, mimeType: 'application/vnd.google-apps.folder' };
   if (parentId) meta.parents = [parentId];
-
   const created = await drive.files.create({ requestBody: meta, fields: 'id' });
   return created.data.id;
 }
 
-// === upload ===
+// ---- /upload (стримом в Drive) ----
 app.post('/upload', async (req, res) => {
   const sid = String(req.query.sid || '').trim();
   if (!sid) return res.status(400).send('Missing sid');
@@ -73,21 +71,30 @@ app.post('/upload', async (req, res) => {
   }
 
   try {
-    const sessionsId = await ensureFolder(drive, 'sessions', null);
-    const sessionId = await ensureFolder(drive, sid, sessionsId);
+    const rootId = await ensureFolder(drive, 'sessions', null);
+    const sessionId = await ensureFolder(drive, sid, rootId);
 
     const bb = Busboy({ headers: req.headers });
     const uploads = [];
 
-    bb.on('file', (_fieldname, file, info) => {
-      const { filename, mimeType } = info;
-      const chunks = [];
-      file.on('data', (d) => chunks.push(d));
-      file.on('end', () => {
-        const media = { mimeType: mimeType || 'application/octet-stream', body: Buffer.concat(chunks) };
-        const meta = { name: filename || 'file', parents: [sessionId] };
-        uploads.push(drive.files.create({ requestBody: meta, media, fields: 'id,name,size,mimeType' }));
+    bb.on('file', (fieldname, file, info) => {
+      const { filename, mimeType } = info || {};
+      // Пушим промис, который завершится, когда загрузка в Drive закончится
+      const p = drive.files.create({
+        requestBody: { name: filename || 'file', parents: [sessionId] },
+        media: { mimeType: mimeType || 'application/octet-stream', body: file },
+        fields: 'id,name,mimeType,size'
       });
+      uploads.push(p);
+      // Если поток файла упал — промис тоже зафейлится
+      file.on('error', (err) => {
+        console.error('file stream error:', err);
+      });
+    });
+
+    bb.on('error', (e) => {
+      console.error('busboy error:', e);
+      if (!res.headersSent) res.status(500).json({ ok: false, error: 'busboy: ' + e.message });
     });
 
     bb.on('finish', async () => {
