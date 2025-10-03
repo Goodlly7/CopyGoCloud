@@ -2,63 +2,186 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>CopyGo → Google Drive</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CopyGo → Google Drive (server upload)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:40px;max-width:720px}
-    .box{border:1px solid #ddd;border-radius:12px;padding:16px}
-    .row{margin:10px 0}
-    button{padding:10px 16px;border-radius:10px;border:0;background:#2563eb;color:#fff;cursor:pointer}
-    input[type=file]{padding:6px}
-    pre{background:#111;color:#b7ffb7;padding:12px;border-radius:10px;overflow:auto}
+    :root{
+      --bg:#0b1020;--grad:#142348;--card:#101934;--line:#2b3a69;
+      --text:#e6f0ff;--muted:#a9b7d9;--accent:#7c3aed;--ok:#10b981;--err:#ef4444;--btn:#2563eb;
+    }
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 700px at 12% -10%,var(--grad),transparent),var(--bg);color:var(--text);font-family:system-ui, Segoe UI, Roboto, Arial, sans-serif}
+    .wrap{max-width:980px;margin:42px auto 80px;padding:0 16px}
+    .card{background:rgba(16,25,52,.78);backdrop-filter:blur(6px);border:1px solid rgba(124,58,237,.22);border-radius:22px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+    .pad{padding:22px}
+    .header{display:flex;gap:14px;align-items:center;margin-bottom:10px}
+    .logo{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:#1e293b;color:#93c5fd;font-weight:800}
+    .title{font-size:22px;font-weight:800}
+    .sid{color:#a3b0d6;font-size:14px}
+    .drop{border:2px dashed rgba(148,163,184,.35);border-radius:16px;height:220px;display:grid;place-items:center;color:#cbd5e1;text-align:center}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    button{background:var(--btn);border:none;color:#fff;padding:12px 16px;border-radius:12px;font-size:16px;cursor:pointer}
+    button.sec{background:#334155}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    input[type=file]{display:none}
+    .list{margin-top:16px}
+    .item{background:#0f1a36;border:1px solid rgba(148,163,184,.18);border-radius:12px;padding:12px 14px;margin:10px 0}
+    .name{font-weight:600}
+    .status{font-size:13px;color:var(--muted);margin-top:6px}
+    .ok{color:var(--ok)} .err{color:var(--err)}
+    .bar{height:6px;border-radius:999px;background:#1f2a4d;margin-top:8px;overflow:hidden}
+    .bar>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#60a5fa,#7c3aed)}
+    .top{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-bottom:12px}
+    .chip{border:1px solid rgba(124,58,237,.35);padding:6px 10px;border-radius:999px;color:#dbeafe;font-size:12px}
+    pre#log{background:#0b1020;color:#b7ffb7;border:1px solid rgba(124,58,237,.25);padding:12px;border-radius:12px;max-height:240px;overflow:auto}
+    a{color:#93c5fd}
+    .row{display:flex;gap:12px;align-items:center;margin:10px 0 16px}
+    .row input[type=text]{background:#0f1a36;color:#e6f0ff;border:1px solid rgba(148,163,184,.25);border-radius:10px;padding:10px 12px;min-width:220px}
   </style>
 </head>
 <body>
-  <h1>CopyGo → Google Drive</h1>
-  <div class="box">
-    <div class="row">
-      SID: <input id="sid" style="width:220px" />
-      <button id="gen">Новый SID</button>
-    </div>
-    <div class="row">
-      <input id="file" type="file" multiple />
-      <button id="send">Загрузить</button>
-    </div>
-    <pre id="log"></pre>
+<div class="wrap">
+  <div class="top">
+    <span class="chip">Google Drive Upload (server)</span>
   </div>
 
+  <div class="card pad">
+    <div class="header">
+      <div class="logo">CG</div>
+      <div>
+        <div class="title">CopyGo Cloud → Google Drive</div>
+        <div class="sid">SID: <span id="sidLabel"></span></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label for="sid">SID:</label>
+      <input id="sid" type="text" />
+      <button class="sec" id="regen">Случайный SID</button>
+    </div>
+
+    <label class="drop" id="drop">
+      <div>
+        <div style="font-size:22px;font-weight:800">Перетащите файлы сюда</div>
+        <div style="color:#a9b7d9;font-size:14px">или нажмите «Выбрать файлы»</div>
+      </div>
+      <input type="file" id="picker" multiple />
+    </label>
+
+    <div class="btns">
+      <button id="chooseBtn">Выбрать файлы</button>
+      <button id="uploadBtn" disabled>Загрузить</button>
+      <button id="clearBtn" class="sec">Очистить список</button>
+      <span id="hint" class="sid" style="margin-left:auto">
+        Файлы сохраняются в Google Drive сервис-аккаунта → sessions/&lt;SID&gt;
+      </span>
+    </div>
+
+    <div class="list" id="list"></div>
+
+    <div style="margin-top:14px">
+      <pre id="log"></pre>
+    </div>
+  </div>
+</div>
+
 <script>
-const $ = (s)=>document.querySelector(s);
-const log = (m)=>{ $('#log').textContent += (typeof m==='string'?m:JSON.stringify(m)) + '\n'; };
+  // ===== helpers =====
+  const logEl   = document.getElementById('log');
+  const listEl  = document.getElementById('list');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const picker  = document.getElementById('picker');
+  const drop    = document.getElementById('drop');
+  const sidInput= document.getElementById('sid');
+  const sidLabel= document.getElementById('sidLabel');
 
-const sp = new URLSearchParams(location.search);
-$('#sid').value = sp.get('sid') || (Date.now().toString());
-
-$('#gen').onclick = () => { $('#sid').value = Date.now().toString(); };
-
-$('#send').onclick = async () => {
-  const sid = $('#sid').value.trim();
-  const files = $('#file').files;
-  if (!sid) return alert('SID пустой');
-  if (!files.length) return alert('Выбери файлы');
-
-  for (const f of files) {
-    const fd = new FormData();
-    fd.append('file', f, f.name);
-    try {
-      const r = await fetch(`/upload?sid=${encodeURIComponent(sid)}`, {
-        method: 'POST',
-        body: fd
-      });
-      if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      log(`OK: ${f.name}`);
-      log(data);
-    } catch(e) {
-      log(`ERR: ${f.name} -> ${e.message||e}`);
-    }
+  function log(m){ console.log(m); logEl.textContent += (typeof m==='string'?m:JSON.stringify(m)) + "\n"; }
+  function safeName(n){ return n.replace(/[^\w.\- ]+/g,'_'); }
+  function addItem(file){
+    const el = document.createElement('div'); el.className='item';
+    el.innerHTML = `
+      <div class="name">${file.name} <span style="opacity:.7;font-size:12px">(${Math.round(file.size/1024)} КБ)</span></div>
+      <div class="status">ожидание…</div>
+      <div class="bar"><i></i></div>`;
+    listEl.appendChild(el);
+    return { st: el.querySelector('.status'), bar: el.querySelector('.bar>i') };
   }
-};
+
+  // Сохраняем/читаем SID
+  function randomSid(){ return 'SID-' + Math.random().toString(36).slice(2,8).toUpperCase(); }
+  function setSid(v){ sidInput.value = v; sidLabel.textContent = v; localStorage.setItem('copygo.sid', v); }
+  setSid(localStorage.getItem('copygo.sid') || randomSid());
+  document.getElementById('regen').onclick = () => setSid(randomSid());
+  sidInput.addEventListener('input', () => setSid(sidInput.value.trim() || randomSid()));
+
+  const files = [];
+
+  // UI bindings
+  document.getElementById('chooseBtn').onclick = () => picker.click();
+  document.getElementById('clearBtn').onclick = () => { files.length=0; listEl.innerHTML=''; uploadBtn.disabled=true; };
+
+  picker.addEventListener('change', onPicked);
+  ['dragenter','dragover','dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();}));
+  drop.addEventListener('drop', e => onPickedFiles(Array.from(e.dataTransfer.files||[])));
+
+  function onPicked(){ onPickedFiles(Array.from(picker.files||[])); }
+  function onPickedFiles(arr){
+    for (const f of arr){
+      const ui = addItem(f);
+      f._st = ui.st; f._bar = ui.bar;
+      files.push(f);
+    }
+    uploadBtn.disabled = files.length===0;
+  }
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!files.length){ return; }
+    const sid = sidInput.value.trim();
+    if (!sid){ alert('SID пустой'); return; }
+
+    uploadBtn.disabled = true;
+    try{
+      for (const f of files){
+        f._st.textContent = 'загрузка…';
+
+        const fd = new FormData();
+        // Чуть «чистим» имя (не обязательно)
+        const cleaned = new File([f], safeName(f.name), { type: f.type });
+        fd.append('file', cleaned, cleaned.name);
+
+        await uploadOne(`/upload?sid=${encodeURIComponent(sid)}`, fd, pct => f._bar.style.width = pct + '%');
+        f._st.textContent = 'готово ✓';
+        f._st.classList.add('ok');
+      }
+      log('Все файлы отправлены');
+    }catch(e){
+      log('Ошибка: ' + (e.message||e));
+    }finally{
+      uploadBtn.disabled = false;
+    }
+  });
+
+  function uploadOne(url, formData, onProgress){
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.responseType = 'json';
+      xhr.upload.onprogress = (ev)=>{
+        if (ev.lengthComputable && onProgress){
+          onProgress(Math.round(100*ev.loaded/ev.total));
+        }
+      };
+      xhr.onerror = ()=> reject(new Error('network_error'));
+      xhr.onload = ()=>{
+        if (xhr.status>=200 && xhr.status<300) resolve(xhr.response);
+        else reject(new Error('http_'+xhr.status+': '+xhr.responseText));
+      };
+      xhr.send(formData);
+    });
+  }
+
+  // Небольшой пинг health для наглядности
+  fetch('/health').then(r=>r.json()).then(j=>log('health: '+JSON.stringify(j))).catch(()=>log('health: fail'));
 </script>
 </body>
 </html>
