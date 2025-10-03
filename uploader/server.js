@@ -9,8 +9,8 @@ const app = express();
 // Health check
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-// Статика
-app.use(express.static('public'));
+// Статика - обслуживаем файлы из корня
+app.use(express.static('.'));
 
 function escapeForQuery(s) {
   return String(s).replace(/['\\]/g, '\\$&');
