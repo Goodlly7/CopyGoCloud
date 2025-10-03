@@ -1,14 +1,8 @@
-{
-  "name": "copygo-uploader",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.19.2",
-    "busboy": "^1.6.0",
-    "googleapis": "^131.0.0"
-  },
-  "engines": { "node": ">=18" }
-}
+"scripts": { "start": "node server.js" },
+"type": "module",
+"dependencies": {
+  "express": "^4.19.2",
+  "busboy": "^1.6.0",
+  "googleapis": "^131.0.0"
+},
+"engines": { "node": ">=18" }
