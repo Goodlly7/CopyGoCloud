@@ -1,215 +1,216 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <title>CopyGo → Google Drive</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: linear-gradient(135deg, #0b1020 0%, #1a2332 100%);
-      color: #e6f0ff;
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
-      min-height: 100vh;
-    }
-    .wrap {
-      max-width: 980px;
-      margin: 42px auto 80px;
-      padding: 0 16px;
-    }
-    .card {
-      background: rgba(16, 25, 52, 0.78);
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(124, 58, 237, 0.22);
-      border-radius: 22px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
-    }
-    .pad {
-      padding: 22px;
-    }
-    .title {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 10px;
-      color: #60a5fa;
-    }
-    .sid-label {
-      color: #a3b0d6;
-      font-size: 14px;
-      margin-top: 16px;
-      display: block;
-    }
-    .drop {
-      border: 2px dashed rgba(148, 163, 184, 0.35);
-      border-radius: 16px;
-      min-height: 220px;
-      display: grid;
-      place-items: center;
-      color: #cbd5e1;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      padding: 20px;
-      margin-top: 16px;
-    }
-    .drop:hover {
-      border-color: rgba(124, 58, 237, 0.5);
-      background: rgba(124, 58, 237, 0.05);
-    }
-    .drop.dragover {
-      border-color: #60a5fa;
-      background: rgba(96, 165, 250, 0.1);
-    }
-    .btns {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 16px;
-    }
-    button {
-      background: #2563eb;
-      border: none;
-      color: #fff;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-size: 16px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s ease;
-    }
-    button:hover {
-      background: #1d4ed8;
-      transform: translateY(-1px);
-    }
-    button.sec {
-      background: #334155;
-    }
-    button.sec:hover {
-      background: #475569;
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-    input[type=file] {
-      display: none;
-    }
-    .item {
-      background: #0f1a36;
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      border-radius: 12px;
-      padding: 12px 14px;
-      margin: 10px 0;
-    }
-    .name {
-      font-weight: 600;
-      color: #e6f0ff;
-    }
-    .status {
-      font-size: 13px;
-      color: #a9b7d9;
-      margin-top: 6px;
-    }
-    .ok {
-      color: #10b981;
-    }
-    .err {
-      color: #ef4444;
-    }
-    .bar {
-      height: 6px;
-      border-radius: 999px;
-      background: #1f2a4d;
-      margin-top: 8px;
-      overflow: hidden;
-    }
-    .bar > i {
-      display: block;
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #60a5fa, #7c3aed);
-      transition: width 0.3s ease;
-    }
-    .sid {
-      color: #a3b0d6;
-      font-size: 14px;
-    }
-    pre#log {
-      background: #0b1020;
-      color: #b7ffb7;
-      border: 1px solid rgba(124, 58, 237, 0.25);
-      padding: 12px;
-      border-radius: 12px;
-      max-height: 220px;
-      overflow: auto;
-      font-size: 13px;
-      margin-top: 16px;
-    }
-    .row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-top: 16px;
-    }
-    .sidinp {
-      background: #0f1a36;
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      border-radius: 12px;
-      padding: 10px 12px;
-      color: #e6f0ff;
-      font-size: 16px;
-      min-width: 200px;
-      flex: 1;
-    }
-    .sidinp:focus {
-      outline: none;
-      border-color: #60a5fa;
-    }
-    .hint {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-top: 8px;
-    }
-  </style>
+  <meta charset="utf-8" />
+  <title>CopyGo → Google Drive</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* Стили остаются как в вашем оригинале */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #0b1020 0%, #1a2332 100%);
+      color: #e6f0ff;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 42px auto 80px;
+      padding: 0 16px;
+    }
+    .card {
+      background: rgba(16, 25, 52, 0.78);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(124, 58, 237, 0.22);
+      border-radius: 22px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    }
+    .pad {
+      padding: 22px;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: #60a5fa;
+    }
+    .sid-label {
+      color: #a3b0d6;
+      font-size: 14px;
+      margin-top: 16px;
+      display: block;
+    }
+    .drop {
+      border: 2px dashed rgba(148, 163, 184, 0.35);
+      border-radius: 16px;
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      color: #cbd5e1;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      padding: 20px;
+      margin-top: 16px;
+    }
+    .drop:hover {
+      border-color: rgba(124, 58, 237, 0.5);
+      background: rgba(124, 58, 237, 0.05);
+    }
+    .drop.dragover {
+      border-color: #60a5fa;
+      background: rgba(96, 165, 250, 0.1);
+    }
+    .btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    button {
+      background: #2563eb;
+      border: none;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+    button.sec {
+      background: #334155;
+    }
+    button.sec:hover {
+      background: #475569;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    input[type=file] {
+      display: none;
+    }
+    .item {
+      background: #0f1a36;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin: 10px 0;
+    }
+    .name {
+      font-weight: 600;
+      color: #e6f0ff;
+    }
+    .status {
+      font-size: 13px;
+      color: #a9b7d9;
+      margin-top: 6px;
+    }
+    .ok {
+      color: #10b981;
+    }
+    .err {
+      color: #ef4444;
+    }
+    .bar {
+      height: 6px;
+      border-radius: 999px;
+      background: #1f2a4d;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #60a5fa, #7c3aed);
+      transition: width 0.3s ease;
+    }
+    .sid {
+      color: #a3b0d6;
+      font-size: 14px;
+    }
+    pre#log {
+      background: #0b1020;
+      color: #b7ffb7;
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      padding: 12px;
+      border-radius: 12px;
+      max-height: 220px;
+      overflow: auto;
+      font-size: 13px;
+      margin-top: 16px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .sidinp {
+      background: #0f1a36;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: #e6f0ff;
+      font-size: 16px;
+      min-width: 200px;
+      flex: 1;
+    }
+    .sidinp:focus {
+      outline: none;
+      border-color: #60a5fa;
+    }
+    .hint {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+  </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="card pad">
-    <div class="title">
-      🚀 CopyGo Cloud → Google Drive 
-      <span class="sid">/upload?sid=&lt;SID&gt;</span>
-    </div>
+  <div class="card pad">
+    <div class="title">
+      🚀 CopyGo Cloud → Google Drive 
+      <span class="sid">/upload?sid=&lt;SID&gt;</span>
+    </div>
 
-    <div class="row">
-      <label for="sid" class="sid-label">Session ID (SID):</label>
-      <input id="sid" class="sidinp" value="TEST123" placeholder="Введите ID сессии" />
-      <button id="rnd" class="sec">🎲 Случайный SID</button>
-    </div>
-    <div class="hint">
-      Файлы сохраняются в Google Drive → sessions/&lt;SID&gt;
-    </div>
+    <div class="row">
+      <label for="sid" class="sid-label">Session ID (SID):</label>
+      <input id="sid" class="sidinp" value="TEST123" placeholder="Введите ID сессии" />
+      <button id="rnd" class="sec">🎲 Случайный SID</button>
+    </div>
+    <div class="hint">
+      Файлы сохраняются в Google Drive → sessions/&lt;SID&gt;
+    </div>
 
-    <label class="drop" id="drop">
-      <div>
-        <div style="font-size:20px;font-weight:800">📁 Перетащите файлы сюда</div>
-        <div style="color:#a9b7d9;font-size:14px;margin-top:8px">или нажмите «Выбрать файлы»</div>
-        <div style="color:#64748b;font-size:12px;margin-top:8px">Максимум 100 МБ на файл</div>
-      </div>
-      <input type="file" id="picker" multiple />
-    </label>
+    <label class="drop" id="drop">
+      <div>
+        <div style="font-size:20px;font-weight:800">📁 Перетащите файлы сюда</div>
+        <div style="color:#a9b7d9;font-size:14px;margin-top:8px">или нажмите «Выбрать файлы»</div>
+        <div style="color:#64748b;font-size:12px;margin-top:8px">Максимум 100 МБ на файл</div>
+      </div>
+      <input type="file" id="picker" multiple />
+    </label>
 
-    <div class="btns">
-      <button id="chooseBtn">📎 Выбрать файлы</button>
-      <button id="uploadBtn" disabled>⬆️ Загрузить</button>
-      <button id="clearBtn" class="sec">🗑️ Очистить список</button>
-    </div>
+    <div class="btns">
+      <button id="chooseBtn">📎 Выбрать файлы</button>
+      <button id="uploadBtn" disabled>⬆️ Загрузить</button>
+      <button id="clearBtn" class="sec">🗑️ Очистить список</button>
+    </div>
 
-    <div id="list"></div>
-    <pre id="log"></pre>
-  </div>
+    <div id="list"></div>
+    <pre id="log"></pre>
+  </div>
 </div>
 
 <script>
@@ -222,156 +223,165 @@ const drop = document.getElementById('drop');
 const sidEl = document.getElementById('sid');
 const files = [];
 
+// --- ДОБАВЛЕНО: Автоматическое определение SID из URL ---
+const urlParams = new URLSearchParams(window.location.search);
+const initialSid = urlParams.get('sid');
+if (initialSid) {
+    sidEl.value = decodeURIComponent(initialSid);
+}
+// --------------------------------------------------------
+
 function log(m) {
-  const msg = typeof m === 'string' ? m : JSON.stringify(m, null, 2);
-  const time = new Date().toLocaleTimeString();
-  logEl.textContent += `[${time}] ${msg}\n`;
-  logEl.scrollTop = logEl.scrollHeight;
+  const msg = typeof m === 'string' ? m : JSON.stringify(m, null, 2);
+  const time = new Date().toLocaleTimeString();
+  logEl.textContent += `[${time}] ${msg}\n`;
+  logEl.scrollTop = logEl.scrollHeight;
 }
 
 function safeName(n) {
-  return n.replace(/[^\w.\- ]+/g, '_');
+  return n.replace(/[^\w.\- ]+/g, '_');
 }
 
 function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' Б';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
+  if (bytes < 1024) return bytes + ' Б';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
 }
 
 function addItem(file) {
-  const el = document.createElement('div');
-  el.className = 'item';
-  el.innerHTML = `
-    <div class="name">${file.name} <span style="opacity:.7;font-size:12px">(${formatSize(file.size)})</span></div>
-    <div class="status">ожидание…</div>
-    <div class="bar"><i></i></div>`;
-  listEl.appendChild(el);
-  return {
-    st: el.querySelector('.status'),
-    bar: el.querySelector('.bar>i')
-  };
+  const el = document.createElement('div');
+  el.className = 'item';
+  el.innerHTML = `
+    <div class="name">${file.name} <span style="opacity:.7;font-size:12px">(${formatSize(file.size)})</span></div>
+    <div class="status">ожидание…</div>
+    <div class="bar"><i></i></div>`;
+  listEl.appendChild(el);
+  return {
+    st: el.querySelector('.status'),
+    bar: el.querySelector('.bar>i')
+  };
 }
 
 document.getElementById('chooseBtn').onclick = () => picker.click();
 
 document.getElementById('clearBtn').onclick = () => {
-  files.length = 0;
-  listEl.innerHTML = '';
-  uploadBtn.disabled = true;
-  log('Список очищен');
+  files.length = 0;
+  listEl.innerHTML = '';
+  uploadBtn.disabled = true;
+  log('Список очищен');
 };
 
 document.getElementById('rnd').onclick = () => {
-  sidEl.value = 'SID-' + Math.random().toString(36).slice(2, 9).toUpperCase();
-  log('Сгенерирован новый SID: ' + sidEl.value);
+  sidEl.value = 'SID-' + Math.random().toString(36).slice(2, 9).toUpperCase();
+  log('Сгенерирован новый SID: ' + sidEl.value);
 };
 
 picker.addEventListener('change', onPicked);
 
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev =>
-  drop.addEventListener(ev, e => {
-    e.preventDefault();
-    e.stopPropagation();
-  })
+  drop.addEventListener(ev, e => {
+    e.preventDefault();
+    e.stopPropagation();
+  })
 );
 
 drop.addEventListener('dragenter', () => drop.classList.add('dragover'));
 drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
 drop.addEventListener('drop', e => {
-  drop.classList.remove('dragover');
-  onPickedFiles(Array.from(e.dataTransfer.files || []));
+  drop.classList.remove('dragover');
+  onPickedFiles(Array.from(e.dataTransfer.files || []));
 });
 
 function onPicked() {
-  onPickedFiles(Array.from(picker.files || []));
+  onPickedFiles(Array.from(picker.files || []));
 }
 
 function onPickedFiles(arr) {
-  for (const f of arr) {
-    if (f.size > MAX_SIZE) {
-      log(`❌ Пропуск: ${f.name} (размер > 100 МБ)`);
-      continue;
-    }
-    const ui = addItem(f);
-    f._st = ui.st;
-    f._bar = ui.bar;
-    files.push(f);
-    log(`✅ Добавлен: ${f.name}`);
-  }
-  uploadBtn.disabled = files.length === 0;
+  for (const f of arr) {
+    if (f.size > MAX_SIZE) {
+      log(`❌ Пропуск: ${f.name} (размер > 100 МБ)`);
+      continue;
+    }
+    const ui = addItem(f);
+    f._st = ui.st;
+    f._bar = ui.bar;
+    files.push(f);
+    log(`✅ Добавлен: ${f.name}`);
+  }
+  uploadBtn.disabled = files.length === 0;
 }
 
 uploadBtn.addEventListener('click', async () => {
-  if (!files.length) return;
-  const sid = sidEl.value.trim() || 'default';
-  
-  log(`🚀 Начало загрузки в сессию: ${sid}`);
+  if (!files.length) return;
+  const sid = sidEl.value.trim() || 'default';
+  
+  log(`🚀 Начало загрузки в сессию: ${sid}`);
 
-  for (const f of files) {
-    f._st.textContent = 'загрузка…';
-    const fd = new FormData();
-    const cleaned = new File([f], safeName(f.name), { type: f.type });
-    fd.append('file', cleaned, cleaned.name);
-    
-    try {
-      const resp = await uploadOne(
-        `/upload?sid=${encodeURIComponent(sid)}`,
-        fd,
-        pct => f._bar.style.width = pct + '%'
-      );
-      f._st.textContent = '✅ готово';
-      f._st.classList.add('ok');
-      log(`✅ ${f.name} загружен успешно`);
-    } catch (e) {
-      f._st.textContent = '❌ ошибка';
-      f._st.classList.add('err');
-      log(`❌ ${f.name}: ${e.message || e}`);
-    }
-  }
-  
-  log('🎉 Загрузка завершена!');
+  for (const f of files) {
+    f._st.textContent = 'загрузка…';
+    const fd = new FormData();
+    // Очищаем имя файла от недопустимых символов для Google Drive
+    const cleaned = new File([f], safeName(f.name), { type: f.type }); 
+    fd.append('file', cleaned, cleaned.name);
+    
+    try {
+      const resp = await uploadOne(
+        `/upload?sid=${encodeURIComponent(sid)}`,
+        fd,
+        pct => f._bar.style.width = pct + '%'
+      );
+      f._st.textContent = '✅ готово';
+      f._st.classList.add('ok');
+      log(`✅ ${f.name} загружен успешно`);
+    } catch (e) {
+      f._st.textContent = '❌ ошибка';
+      f._st.classList.add('err');
+      log(`❌ ${f.name}: ${e.message || e}`);
+    }
+  }
+  
+  log('🎉 Загрузка завершена! Клиент на ПК скоро отобразит фото.');
 });
 
 function uploadOne(url, formData, onProgress) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
-    xhr.responseType = 'json';
-    
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable && onProgress) {
-        onProgress(Math.round(100 * ev.loaded / ev.total));
-      }
-    };
-    
-    xhr.onerror = () => reject(new Error('Ошибка сети'));
-    
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr.response);
-      } else {
-        const msg = xhr.response?.error || xhr.statusText || 'Неизвестная ошибка';
-        reject(new Error(`HTTP ${xhr.status}: ${msg}`));
-      }
-    };
-    
-    xhr.send(formData);
-  });
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.responseType = 'json';
+    
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onProgress) {
+        onProgress(Math.round(100 * ev.loaded / ev.total));
+      }
+    };
+    
+    xhr.onerror = () => reject(new Error('Ошибка сети'));
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.response);
+      } else {
+        const msg = xhr.response?.error || xhr.statusText || 'Неизвестная ошибка';
+        reject(new Error(`HTTP ${xhr.status}: ${msg}`));
+      }
+    };
+    
+    xhr.send(formData);
+  });
 }
 
 // Проверка здоровья сервера при загрузке
 fetch('/health')
-  .then(r => r.json())
-  .then(j => {
-    log('✅ Сервер готов к работе');
-    if (j.env?.GOOGLE_SERVICE_ACCOUNT_JSON === 'SET ✓') {
-      log('✅ Google Drive подключен');
-    } else {
-      log('⚠️ Google Drive не настроен');
-    }
-  })
-  .catch(e => log('❌ Ошибка подключения к серверу: ' + e.message));
+  .then(r => r.json())
+  .then(j => {
+    log('✅ Сервер готов к работе');
+    if (j.env?.GOOGLE_SERVICE_ACCOUNT_JSON === 'SET ✓') {
+      log('✅ Google Drive подключен');
+    } else {
+      log('⚠️ Google Drive не настроен');
+    }
+  })
+  .catch(e => log('❌ Ошибка подключения к серверу: ' + e.message));
 </script>
 </body>
 </html>
