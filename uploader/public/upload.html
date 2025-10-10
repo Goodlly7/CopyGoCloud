@@ -24,8 +24,6 @@
                   radial-gradient(800px 600px at 40% 90%, #22c55e55, transparent 60%),
                   linear-gradient(120deg, #0f172a, #111827);
     }
-
-    /* Анимированный многоцветный слой */
     .animated-bg {
       position: fixed; inset: 0; z-index:-2;
       background: linear-gradient(45deg,
@@ -40,8 +38,6 @@
       50%{background-position:100% 50%}
       100%{background-position:0% 50%}
     }
-
-    /* Мягкие “пузырьки” */
     .blob{
       position: fixed; border-radius: 50%;
       filter: blur(40px); opacity:.28; mix-blend-mode: screen; z-index:-1;
@@ -56,59 +52,38 @@
       66%{transform: translateY(15px) translateX(-8px) scale(0.96)}
       100%{transform: translateY(0) translateX(0) scale(1)}
     }
-
-    .wrap{
-      min-height:100dvh; display:flex; align-items:center; justify-content:center; padding: clamp(16px, 2.2vw, 32px);
-    }
-
+    .wrap{ min-height:100dvh; display:flex; align-items:center; justify-content:center; padding: clamp(16px, 2.2vw, 32px); }
     .card{
       width: min(920px, 92vw);
       background: var(--glass-bg);
       backdrop-filter: blur(14px) saturate(1.2);
       border: 1px solid var(--glass-brd);
       border-radius: 24px;
-      box-shadow:
-        0 20px 70px -20px rgba(0,0,0,.55),
-        inset 0 1px 0 rgba(255,255,255,.15);
+      box-shadow: 0 20px 70px -20px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.15);
       padding: clamp(18px, 3.2vw, 36px);
     }
-
     .logo{
       font-weight:800; font-size: clamp(28px, 4.8vw, 56px); line-height:1.05; letter-spacing:.4px;
-      margin: 0 0 6px; 
+      margin: 0 0 6px;
       background: linear-gradient(90deg, #ffffff, #fef3c7, #d1fae5, #e9d5ff, #fecdd3);
       background-clip: text; -webkit-background-clip:text; color: transparent;
       filter: drop-shadow(0 2px 18px rgba(255,255,255,.22));
     }
-    .subtitle{
-      margin: 0 0 24px; color: var(--muted);
-      font-size: clamp(14px, 1.6vw, 18px);
-    }
-
+    .subtitle{ margin: 0 0 24px; color: var(--muted); font-size: clamp(14px, 1.6vw, 18px); }
     .row{display:grid; grid-template-columns: 1fr; gap: 16px}
-    @media (min-width:880px){
-      .row{grid-template-columns: 1.1fr .9fr}
-    }
-
+    @media (min-width:880px){ .row{grid-template-columns: 1.1fr .9fr} }
     .panel{
       background: rgba(255,255,255,.06);
       border: 1px solid rgba(255,255,255,.18);
       border-radius: 18px; padding: 16px;
     }
-    .panel h3{
-      margin:0 0 10px; font-size: clamp(16px, 2vw, 20px);
-      color:#fff; font-weight:700;
-    }
+    .panel h3{ margin:0 0 10px; font-size: clamp(16px, 2vw, 20px); color:#fff; font-weight:700; }
     .hint{margin:8px 0 14px; color: rgba(255,255,255,.8); font-size: 13px}
-
-    .sid{
-      display:flex; gap:10px; align-items:center; margin:12px 0 6px;
-    }
+    .sid{ display:flex; gap:10px; align-items:center; margin:12px 0 6px; }
     .sid input{
       flex:1; min-width:0; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.25);
       background: rgba(0,0,0,.25); color:#fff; outline:none;
     }
-
     .drop{
       position: relative; border:1.5px dashed rgba(255,255,255,.45); border-radius:16px;
       padding: 22px; text-align:center; cursor:pointer;
@@ -120,7 +95,6 @@
     .drop input{display:none}
     .drop .title{font-weight:700; margin-bottom:6px}
     .drop .small{font-size:12px; color:rgba(255,255,255,.85)}
-
     .actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
     .btn{
       appearance:none; border:none; border-radius:12px; padding:12px 16px; font-weight:700; cursor:pointer;
@@ -131,7 +105,6 @@
     .btn.secondary{background: linear-gradient(135deg, #a78bfa, #ec4899); color:#100a16}
     .btn:hover{transform: translateY(-1px); filter: brightness(1.04)}
     .btn:active{transform: translateY(0)}
-
     .list{max-height: 340px; overflow:auto; display:flex; flex-direction:column; gap:10px; padding-right:4px}
     .item{
       background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.2);
@@ -139,24 +112,18 @@
     }
     .name{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
     .stat{font-size:12px; opacity:.9; margin-top:4px}
-    .bar{
-      height:8px; background: rgba(255,255,255,.16); border-radius:999px; overflow:hidden; margin-top:8px;
-    }
+    .bar{ height:8px; background: rgba(255,255,255,.16); border-radius:999px; overflow:hidden; margin-top:8px; }
     .bar > i{
       display:block; height:100%; width:0%;
       background: linear-gradient(90deg, #22c55e, #06b6d4);
       transition: width .15s ease;
     }
     .ok{color: var(--ok)} .warn{color: var(--warn)} .err{color: var(--err)}
-
-    footer{
-      margin-top: 18px; font-size:12px; color: rgba(255,255,255,.85);
-      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
-    }
+    footer{ margin-top: 18px; font-size:12px; color: rgba(255,255,255,.85);
+      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   </style>
 </head>
 <body>
-  <!-- Анимированный фон -->
   <div class="animated-bg"></div>
   <div class="blob b1"></div>
   <div class="blob b2"></div>
@@ -165,10 +132,9 @@
   <div class="wrap">
     <div class="card">
       <h1 class="logo">COPYGO Upload</h1>
-      <p class="subtitle">Жүктөө &nbsp;•&nbsp; Загрузка файлов в вашу сессию Drive. Цветной, живой фон и стеклянный UI — всё как вы просили.</p>
+      <p class="subtitle">Жүктөө • Загрузка файлов в вашу сессию Drive. Цветной, живой фон и стеклянный UI.</p>
 
       <div class="row">
-        <!-- Левая панель: Загрузка -->
         <section class="panel">
           <h3>Файлы</h3>
           <p class="hint">Перетащите сюда фото или нажмите, чтобы выбрать. Затем укажите ID сессии и жмите «Отправить».</p>
@@ -193,13 +159,12 @@
           </footer>
         </section>
 
-        <!-- Правая панель: Подсказки -->
         <aside class="panel">
           <h3>Подсказки</h3>
           <ul class="hint">
             <li>SID определяет папку в <b>CopyGoCloud_Sessions</b> на Google Drive.</li>
             <li>Можно загружать несколько файлов. Прогресс виден ниже.</li>
-            <li>Если нужно быстро проверить сервис — откройте <code>/health</code>.</li>
+            <li>Для проверки доступности — <code>/health</code>.</li>
           </ul>
           <div style="margin-top:16px; opacity:.9">
             <div class="title" style="font-weight:800; font-size:18px; margin-bottom:8px;">Статусы</div>
@@ -218,7 +183,6 @@
   </div>
 
   <script>
-    // --------- Утилиты ---------
     const $ = (sel, root=document)=>root.querySelector(sel);
     const listEl = $("#list");
     const totalEl = $("#total");
@@ -228,7 +192,6 @@
     const sendBtn = $("#send");
     const clearBtn = $("#clear");
 
-    /** Состояние выбранных файлов (перед отправкой) */
     let queue = [];
 
     function fmtBytes(b){
@@ -243,8 +206,8 @@
       const div = document.createElement('div');
       div.className = 'item';
       div.innerHTML = `
-        <div class="name" title="${file.name}">${file.name}</div>
-        <div class="stat">${fmtBytes(file.size)} • <span class="st">в очереди</span></div>
+        <div class="name" title="\${file.name}">\${file.name}</div>
+        <div class="stat">\${fmtBytes(file.size)} • <span class="st">в очереди</span></div>
         <div class="bar"><i></i></div>
       `;
       return div;
@@ -252,26 +215,21 @@
 
     function renderQueue(){
       listEl.innerHTML = "";
-      queue.forEach(f => {
-        listEl.appendChild(f._row);
-      });
-      totalEl.textContent = queue.length ? `Выбрано: ${queue.length} файл(ов)` : "";
+      queue.forEach(f => listEl.appendChild(f._row));
+      totalEl.textContent = queue.length ? \`Выбрано: \${queue.length} файл(ов)\` : "";
     }
 
-    // --------- D&D ---------
     drop.addEventListener("click", ()=> picker.click());
     drop.addEventListener("dragenter", e=>{e.preventDefault(); drop.classList.add('drag')});
     drop.addEventListener("dragover", e=>{e.preventDefault(); drop.classList.add('drag')});
     drop.addEventListener("dragleave", e=>{drop.classList.remove('drag')});
     drop.addEventListener("drop", e=>{
       e.preventDefault(); drop.classList.remove('drag');
-      if (e.dataTransfer?.files?.length){
-        addFiles(e.dataTransfer.files);
-      }
+      if (e.dataTransfer?.files?.length){ addFiles(e.dataTransfer.files); }
     });
-    picker.addEventListener("change", e=>{
+    picker.addEventListener("change", ()=>{
       if (picker.files?.length) addFiles(picker.files);
-      picker.value = ""; // сброс для повторного выбора
+      picker.value = "";
     });
 
     function addFiles(fileList){
@@ -288,60 +246,46 @@
       renderQueue();
     });
 
-    // --------- Отправка ---------
     sendBtn.addEventListener("click", async ()=>{
       const sid = (sidEl.value || "").trim();
-      if (!sid){
-        alert("Укажите ID сессии (sid).");
-        sidEl.focus();
-        return;
-      }
-      if (!queue.length){
-        alert("Добавьте файлы.");
-        return;
-      }
+      if (!sid){ alert("Укажите ID сессии (sid)."); sidEl.focus(); return; }
+      if (!queue.length){ alert("Добавьте файлы."); return; }
 
-      sendBtn.disabled = true;
-      clearBtn.disabled = true;
-
-      for (const file of queue){
-        await uploadOne(file, sid);
-      }
-
-      sendBtn.disabled = false;
-      clearBtn.disabled = false;
+      sendBtn.disabled = true; clearBtn.disabled = true;
+      for (const file of queue){ await uploadOne(file, sid); }
+      sendBtn.disabled = false; clearBtn.disabled = false;
     });
 
     function uploadOne(file, sid){
       return new Promise((resolve)=>{
         const row = file._row;
-        const st = $(".st", row);
-        const bar = $(".bar > i", row);
+        const st = row.querySelector(".st");
+        const bar = row.querySelector(".bar > i");
 
         const fd = new FormData();
         fd.append("file", file, file.name);
 
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", `/upload?sid=${encodeURIComponent(sid)}`);
+        xhr.open("POST", "/upload?sid=" + encodeURIComponent(sid));
 
         xhr.upload.onprogress = (e)=>{
           if (e.lengthComputable){
             const p = Math.round(e.loaded / e.total * 100);
             bar.style.width = p + "%";
-            st.textContent = `загрузка… ${p}%`;
+            st.textContent = "загрузка… " + p + "%";
           }
         };
         xhr.onload = ()=>{
           if (xhr.status >= 200 && xhr.status < 300){
             bar.style.width = "100%";
-            st.innerHTML = `<span class="ok">готово</span>`;
+            st.innerHTML = '<span class="ok">готово</span>';
           } else {
-            st.innerHTML = `<span class="err">ошибка: ${xhr.status}</span>`;
+            st.innerHTML = '<span class="err">ошибка: ' + xhr.status + '</span>';
           }
           resolve();
         };
         xhr.onerror = ()=>{
-          st.innerHTML = `<span class="err">сетевая ошибка</span>`;
+          st.innerHTML = '<span class="err">сетевая ошибка</span>';
           resolve();
         };
         xhr.send(fd);
