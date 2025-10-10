@@ -1,19 +1,31 @@
-// server.js (CommonJS)
-const express = require("express");
-const Busboy = require("busboy");
-const cors = require("cors");
-const { google } = require("googleapis");
+// server.js (ES Modules - Исправленный код)
+
+import express from "express";
+import Busboy from "busboy";
+import cors from "cors";
+import { google } from "googleapis";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+// Служебные переменные для ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 // Добавляем CORS, чтобы веб-аплоадер мог отправить запрос
-app.use(cors()); 
+app.use(cors()); 
 
 // -------- Google Drive ----------
 function makeDrive() {
   // Вариант 1: отдельные переменные
   const client_email = process.env.GOOGLE_CLIENT_EMAIL;
   let private_key = process.env.GOOGLE_PRIVATE_KEY;
-  if (private_key && private_key.includes("\\n")) private_key = private_key.replace(/\\n/g, "\n");
+  
+    // Обработка переносов строки
+  if (private_key && private_key.includes("\\n")) {
+        private_key = private_key.replace(/\\n/g, "\n");
+    }
 
   // Вариант 2: весь JSON одной переменной
   const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -47,9 +59,9 @@ async function findOrCreateFolder(drive, name, parentId) {
 
 // -------- Endpoints ----------
 app.get("/", (req, res) => {
-    // При запросе к корню, показываем веб-аплоадер, чтобы QR-код вел сюда.
-    // Если sid в query, то веб-аплоадер его подхватит.
-    res.sendFile(__dirname + "/uploader.html");
+    // При запросе к корню, показываем веб-аплоадер, чтобы QR-код вел сюда.
+    // Используем path.join для надежного формирования пути
+    res.sendFile(path.join(__dirname, "uploader.html"));
 });
 app.get("/health", (_, res) => res.json({ ok: true }));
 
@@ -62,10 +74,15 @@ app.post("/upload", async (req, res) => {
   catch (e) { res.status(500).json({ ok:false, error: "Drive init: " + e.message }); return; }
 
   try {
-    const sessionsId = await findOrCreateFolder(drive, "sessions", null);
+    // Имя корневой папки для сессий
+    const SESSIONS_ROOT_FOLDER = "CopyGoCloud_Sessions"; 
+    
+    const sessionsId = await findOrCreateFolder(drive, SESSIONS_ROOT_FOLDER, null);
     const sessionId  = await findOrCreateFolder(drive, String(sid), sessionsId);
 
     const uploads = [];
+    
+    // Создаем экземпляр Busboy
     // Убедитесь, что Busboy принимает лимит размера файла, если это необходимо
     const busboy = Busboy({ headers: req.headers, limits: { fileSize: 100 * 1024 * 1024 } });
 
@@ -87,7 +104,7 @@ app.post("/upload", async (req, res) => {
       try {
         const results = await Promise.all(uploads);
         // Этот ответ сигнализирует веб-аплоадеру, что загрузка завершена
-        res.json({ ok: true, files: results }); 
+        res.json({ ok: true, files: results }); 
       } catch (e) {
         res.status(500).json({ ok:false, error: e.message });
       }
@@ -99,5 +116,6 @@ app.post("/upload", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 8080;
+// Используйте process.env.PORT для Render
+const PORT = process.env.PORT || 8080; 
 app.listen(PORT, () => console.log(`Uploader listening on ${PORT}`));
