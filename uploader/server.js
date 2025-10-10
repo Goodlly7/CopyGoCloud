@@ -1,10 +1,10 @@
-// server.js (ESM)
-
+// server.js
 import express from "express";
-import busboy from "busboy";          // обратите внимание: 'busboy' с маленькой буквы
+import busboy from "busboy";
 import cors from "cors";
 import { google } from "googleapis";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
@@ -13,23 +13,24 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-// CORS для веб-аплоадера
+// CORS
 app.use(cors());
 
-// ------------- Google Drive -------------
+// ===== Google Drive =====
 function makeDrive() {
   const client_email = process.env.GOOGLE_CLIENT_EMAIL;
   let private_key = process.env.GOOGLE_PRIVATE_KEY;
 
-  // Если PRIVATE_KEY пришёл с \n, заменим на реальные переводы строк
   if (private_key && private_key.includes("\\n")) {
     private_key = private_key.replace(/\\n/g, "\n");
   }
 
   const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  const credentials = saJson
-    ? JSON.parse(saJson)
-    : { client_email, private_key };
+  const credentials = saJson ? JSON.parse(saJson) : { client_email, private_key };
+
+  if (!credentials.client_email || !credentials.private_key) {
+    throw new Error("Missing GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY (или GOOGLE_SERVICE_ACCOUNT_JSON).");
+  }
 
   const auth = new google.auth.GoogleAuth({
     credentials,
@@ -58,20 +59,32 @@ async function findOrCreateFolder(drive, name, parentId) {
   return created.data.id;
 }
 
-// ------------- Статика и страницы -------------
+// ===== Статика =====
+const PUBLIC_DIR = path.join(__dirname, "public");
+app.use(express.static(PUBLIC_DIR));
+
 app.get("/", (req, res) => {
-  // отдаём uploader.html, лежащий рядом с server.js
-  res.sendFile(path.join(__dirname, "uploader.html"));
+  const indexPath = path.join(PUBLIC_DIR, "index.html");
+  // Подстрахуемся: если файла нет — вернём простую заглушку, чтобы не падать ENOENT
+  if (!fs.existsSync(indexPath)) {
+    res.type("html").send("<!doctype html><meta charset='utf-8'><title>COPYGO</title><h1>Uploader online</h1>");
+    return;
+  }
+  res.sendFile(indexPath);
 });
 
 app.get("/health", (_, res) => res.json({ ok: true }));
 
-// ------------- Загрузка файлов -------------
+// ===== Загрузка =====
 app.post("/upload", async (req, res) => {
-  const sid = req.query.sid;
-  if (!sid) {
-    res.status(400).json({ ok: false, error: "Missing sid" });
-    return;
+  // sid НЕобязательный. Если нет — используем YYYY-MM-DD
+  let sid = req.query.sid;
+  if (!sid || !String(sid).trim()) {
+    const d = new Date();
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    sid = `${y}-${m}-${day}`;
   }
 
   let drive;
@@ -106,6 +119,8 @@ app.post("/upload", async (req, res) => {
       });
     });
 
+    bb.on("field", () => { /* можно читать доп. поля, если понадобятся */ });
+
     bb.on("close", async () => {
       try {
         const results = await Promise.all(uploads);
@@ -121,7 +136,7 @@ app.post("/upload", async (req, res) => {
   }
 });
 
-// ------------- Старт -------------
+// ===== Старт =====
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Uploader listening on ${PORT}`);
