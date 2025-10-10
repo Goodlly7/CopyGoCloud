@@ -13,11 +13,13 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-// CORS
+// --- CORS (по умолчанию всем разрешено; при необходимости сузьте) ---
 app.use(cors());
 
-// ===== Google Drive =====
+// --- Google Drive ---
 function makeDrive() {
+  // Вариант 1: одной переменной GOOGLE_SERVICE_ACCOUNT_JSON (весь JSON как строка)
+  // Вариант 2: парами GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY (с \n)
   const client_email = process.env.GOOGLE_CLIENT_EMAIL;
   let private_key = process.env.GOOGLE_PRIVATE_KEY;
 
@@ -29,12 +31,14 @@ function makeDrive() {
   const credentials = saJson ? JSON.parse(saJson) : { client_email, private_key };
 
   if (!credentials.client_email || !credentials.private_key) {
-    throw new Error("Missing GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY (или GOOGLE_SERVICE_ACCOUNT_JSON).");
+    throw new Error(
+      "Missing GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY (или GOOGLE_SERVICE_ACCOUNT_JSON)."
+    );
   }
 
   const auth = new google.auth.GoogleAuth({
     credentials,
-    scopes: ["https://www.googleapis.com/auth/drive"]
+    scopes: ["https://www.googleapis.com/auth/drive"],
   });
 
   return google.drive({ version: "v3", auth });
@@ -59,25 +63,29 @@ async function findOrCreateFolder(drive, name, parentId) {
   return created.data.id;
 }
 
-// ===== Статика =====
-const PUBLIC_DIR = path.join(__dirname, "public");
-app.use(express.static(PUBLIC_DIR));
+// --- Статика (исправлено: корень = uploader/public, индекс = upload.html) ---
+const PUBLIC_DIR = path.join(__dirname, "uploader", "public");
 
+// Если нужен именно upload.html как индекс:
+app.use(express.static(PUBLIC_DIR, { index: ["upload.html", "index.html"] }));
+
+// Фолбэк на случай отсутствия файла, чтобы не падать с ENOENT
 app.get("/", (req, res) => {
-  const indexPath = path.join(PUBLIC_DIR, "index.html");
-  // Подстрахуемся: если файла нет — вернём простую заглушку, чтобы не падать ENOENT
-  if (!fs.existsSync(indexPath)) {
-    res.type("html").send("<!doctype html><meta charset='utf-8'><title>COPYGO</title><h1>Uploader online</h1>");
-    return;
+  const indexPath = path.join(PUBLIC_DIR, "upload.html");
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res
+      .type("html")
+      .send("<!doctype html><meta charset='utf-8'><title>COPYGO</title><h1>Uploader online</h1>");
   }
-  res.sendFile(indexPath);
 });
 
 app.get("/health", (_, res) => res.json({ ok: true }));
 
-// ===== Загрузка =====
+// --- Загрузка ---
 app.post("/upload", async (req, res) => {
-  // sid НЕобязательный. Если нет — используем YYYY-MM-DD
+  // sid НЕобязателен — при отсутствии используем yyyy-mm-dd (UTC)
   let sid = req.query.sid;
   if (!sid || !String(sid).trim()) {
     const d = new Date();
@@ -95,34 +103,68 @@ app.post("/upload", async (req, res) => {
     return;
   }
 
+  // Лимит размера файла (100 МБ на файл). Можно отрегулировать.
+  const MAX_FILE_BYTES = 100 * 1024 * 1024;
+
   try {
     const SESSIONS_ROOT_FOLDER = "CopyGoCloud_Sessions";
     const sessionsId = await findOrCreateFolder(drive, SESSIONS_ROOT_FOLDER, null);
-    const sessionId  = await findOrCreateFolder(drive, String(sid), sessionsId);
+    const sessionId = await findOrCreateFolder(drive, String(sid), sessionsId);
 
     const uploads = [];
-    const bb = busboy({ headers: req.headers, limits: { fileSize: 100 * 1024 * 1024 } });
+    const bb = busboy({
+      headers: req.headers,
+      limits: { fileSize: MAX_FILE_BYTES, files: 100 },
+    });
+
+    let tooLarge = false;
 
     bb.on("file", (fieldname, file, info) => {
       const { filename, mimeType } = info;
 
-      const p = drive.files.create({
-        requestBody: { name: filename || "file", parents: [sessionId] },
-        media: { mimeType: mimeType || "application/octet-stream", body: file },
-        fields: "id,name,mimeType,size"
-      }).then(r => r.data);
+      // Если прошлый файл превысил лимит — просто дропаем поток
+      if (tooLarge) {
+        file.resume();
+        return;
+      }
+
+      const p = drive.files
+        .create({
+          requestBody: { name: filename || "file", parents: [sessionId] },
+          media: { mimeType: mimeType || "application/octet-stream", body: file },
+          fields: "id,name,mimeType,size",
+        })
+        .then((r) => r.data);
 
       uploads.push(p);
 
-      file.on("error", err => {
+      file.on("limit", () => {
+        tooLarge = true;
+      });
+
+      file.on("error", (err) => {
         uploads.push(Promise.reject(err));
       });
     });
 
-    bb.on("field", () => { /* можно читать доп. поля, если понадобятся */ });
+    bb.on("partsLimit", () => {
+      uploads.push(Promise.reject(new Error("Too many parts")));
+    });
+
+    bb.on("filesLimit", () => {
+      uploads.push(Promise.reject(new Error("Too many files")));
+    });
+
+    bb.on("fieldsLimit", () => {
+      // игнорируем — у нас нет обязательных полей
+    });
 
     bb.on("close", async () => {
       try {
+        if (tooLarge) {
+          res.status(413).json({ ok: false, error: "File too large" });
+          return;
+        }
         const results = await Promise.all(uploads);
         res.json({ ok: true, files: results });
       } catch (e) {
@@ -136,7 +178,7 @@ app.post("/upload", async (req, res) => {
   }
 });
 
-// ===== Старт =====
+// --- Запуск ---
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Uploader listening on ${PORT}`);
