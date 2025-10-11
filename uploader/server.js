@@ -2,88 +2,74 @@
 import express from "express";
 import cors from "cors";
 import busboy from "busboy";
-import { Storage } from "megajs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { Storage } from "megajs";
 
-/* ---------- пути и статика ---------- */
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const PUBLIC_DIR = path.join(__dirname, "public");
+const __dirname = path.dirname(__filename);
 
-/* ---------- переменные окружения ---------- */
-const MEGA_EMAIL    = process.env.MEGA_EMAIL;
-const MEGA_PASSWORD = process.env.MEGA_PASSWORD;
-const MEGA_FOLDER   = process.env.MEGA_FOLDER || "CopyGo";
-
-if (!MEGA_EMAIL || !MEGA_PASSWORD) {
-  console.warn("[WARN] MEGA_EMAIL/MEGA_PASSWORD не заданы — загрузки не будут работать.");
-}
-
-/* ---------- MEGA: одно соединение на процесс ---------- */
-let storage = null;
-let rootFolder = null;
-
-async function ensureMegaReady() {
-  if (storage && rootFolder) return { storage, rootFolder };
-
-  storage = new Storage({
-    email: MEGA_EMAIL,
-    password: MEGA_PASSWORD,
-    userAgent: "copygo-uploader/1.0",
-  });
-
-  await new Promise((resolve, reject) => {
-    storage.on("ready", resolve);
-    storage.on("error", reject);
-  });
-
-  // найти/создать корневую папку для сессий/загрузок
-  rootFolder = storage.root.children.find(c => c.name === MEGA_FOLDER);
-  if (!rootFolder) rootFolder = await storage.root.mkdir(MEGA_FOLDER);
-
-  console.log("[MEGA] готово, папка:", rootFolder.name);
-  return { storage, rootFolder };
-}
-
-/* ---------- express ---------- */
 const app = express();
 app.use(cors());
 
-// раздача статики (страница загрузки)
-app.use(express.static(PUBLIC_DIR, { index: ["upload.html", "index.html"] }));
+// --------- конфиг через ENV ---------
+const MEGA_EMAIL = process.env.MEGA_EMAIL || "";
+const MEGA_PASSWORD = process.env.MEGA_PASSWORD || "";
+const MEGA_FOLDER = process.env.MEGA_FOLDER || "CopyGo";
 
-// фолбэк на корень
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, "upload.html"));
-});
+// лимит в байтах (буферизация держит файл в RAM!)
+const MAX_FILE_BYTES = parseInt(process.env.MAX_FILE_BYTES || "", 10) || 200 * 1024 * 1024; // 200MB
 
-// простая проверка живости + состояние MEGA
-app.get("/health", async (_req, res) => {
-  try {
-    if (MEGA_EMAIL && MEGA_PASSWORD) {
-      await ensureMegaReady();
-      res.json({ ok: true, backend: "mega", folder: rootFolder?.name || MEGA_FOLDER });
-    } else {
-      res.json({ ok: true, backend: "none" });
-    }
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e?.message || e) });
-  }
-});
-
-/* ---------- загрузка ---------- */
-app.post("/upload", async (req, res) => {
+// --------- MEGA init (ленивый, с кэшированием) ---------
+let megaPromise = null;
+async function ensureMegaReady() {
   if (!MEGA_EMAIL || !MEGA_PASSWORD) {
-    res.status(500).json({ ok: false, error: "MEGA не настроена (MEGA_EMAIL/MEGA_PASSWORD)." });
-    return;
+    throw new Error("MEGA не настроена: задайте MEGA_EMAIL и MEGA_PASSWORD в окружении.");
   }
+  if (!megaPromise) {
+    megaPromise = new Promise((resolve, reject) => {
+      try {
+        const storage = new Storage({ email: MEGA_EMAIL, password: MEGA_PASSWORD });
+        storage.on("ready", async () => {
+          // найти/создать корневую папку
+          let rootFolder = storage.root.children.find(f => f.name === MEGA_FOLDER);
+          if (!rootFolder) {
+            rootFolder = await storage.root.mkdir(MEGA_FOLDER);
+          }
+          console.log("[MEGA] готово, папка:", rootFolder.name);
+          resolve({ storage, rootFolder });
+        });
+        storage.on("error", reject);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+  return megaPromise;
+}
 
+// --------- health ---------
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// --------- страница загрузки (ваш upload.html) ---------
+app.use(express.static(path.join(__dirname, "public"), { index: ["upload.html", "index.html"] }));
+
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(__dirname, "public", "upload.html"));
+});
+
+// --------- загрузка в MEGA ---------
+app.post("/upload", async (req, res) => {
   try {
     const { rootFolder } = await ensureMegaReady();
 
-    const bb = busboy({ headers: req.headers, limits: { files: 100 } });
+    const bb = busboy({
+      headers: req.headers,
+      limits: { files: 50, fileSize: MAX_FILE_BYTES }, // ограничиваем размер
+    });
+
     const uploads = [];
+    let tooLarge = false;
 
     bb.on("file", (_field, file, info) => {
       const { filename } = info || {};
@@ -91,33 +77,50 @@ app.post("/upload", async (req, res) => {
         file.resume();
         return;
       }
+      if (tooLarge) {
+        // уже превысили лимит — скипаем дальнейшие части
+        file.resume();
+        return;
+      }
 
-      // кладём прямо в MEGA_FOLDER (можно делать подпапки по дате/пользователю)
-      const up = rootFolder.upload(filename);
+      // ВАЖНО: включаем буферизацию, иначе megajs требует размер файла заранее.
+      // ПРЕДУПРЕЖДЕНИЕ: файл будет собран в памяти процесса.
+      const up = rootFolder.upload(filename, { allowUploadBuffering: true });
       file.pipe(up);
 
       const done = new Promise((resolve, reject) => {
         up.on("complete", f => {
-          // link() синхронный, отдаёт публичную ссылку
           let url = null;
           try { url = f.link(); } catch (_) {}
           resolve({
             name: f.name,
             size: f.size,
-            url,          // клиент подхватит это поле и покажет ссылку
-            nodeId: f.nodeId
+            url,           // публичная ссылка на файл (если доступна)
+            nodeId: f.nodeId,
           });
         });
         up.on("error", reject);
       });
 
+      file.on("limit", () => { tooLarge = true; });
       uploads.push(done);
     });
 
     bb.on("close", async () => {
       try {
+        if (tooLarge) {
+          res
+            .status(413)
+            .json({ ok: false, error: `File too large (> ${Math.round(MAX_FILE_BYTES/1024/1024)} MB)` });
+          return;
+        }
         const files = await Promise.all(uploads);
-        res.json({ ok: true, backend: "mega", folder: rootFolder.name, files });
+        res.json({
+          ok: true,
+          backend: "mega",
+          folder: MEGA_FOLDER,
+          files,                 // [{ name, size, url, nodeId }]
+        });
       } catch (e) {
         res.status(500).json({ ok: false, error: String(e?.message || e) });
       }
@@ -129,8 +132,6 @@ app.post("/upload", async (req, res) => {
   }
 });
 
-/* ---------- старт ---------- */
+// --------- запуск ---------
 const PORT = process.env.PORT || process.env.RENDER_PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("Uploader running on", PORT);
-});
+app.listen(PORT, "0.0.0.0", () => console.log("Uploader running on port", PORT));
