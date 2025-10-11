@@ -12,7 +12,6 @@
     .c1{color:#ef4444}.c2{color:#f59e0b}.c3{color:#16a34a}.c4{color:#06b6d4}.c5{color:#8b5cf6}.c6{color:#ec4899}
     .subtitle{margin:0 0 18px;color:#64748b;font-size:14px}
 
-    /* Современная кнопка выбора файла */
     .filebox{display:flex;flex-direction:column;gap:12px;align-items:stretch}
     #picker{position:absolute;left:-9999px}
     .btn{appearance:none;border:0;border-radius:12px;padding:14px 18px;font-weight:800;cursor:pointer;font-size:15px;color:#fff;background:linear-gradient(135deg,#06b6d4,#3b82f6);transition:.2s ease}
@@ -49,6 +48,9 @@
   </div>
 
   <script>
+    // 👉 ID папки Google Drive (Прием фотки)
+    const DRIVE_FOLDER_ID = '14JmmbXxv9Qxcuab9WYRcXZNyiTqV-FVK';
+
     const picker=document.getElementById('picker');
     const choose=document.getElementById('choose');
     const send=document.getElementById('send');
@@ -69,15 +71,21 @@
       try{
         for(const file of picker.files){ await uploadOne(file); }
         progress.innerHTML+='<div class="ok">Готово ✅</div>';
-      }catch(e){
-        progress.innerHTML+='<div class="err">Ошибка: '+(e?.message||e)+'</div>';
+        // Всегда показываем ссылку на папку
+        showFolderLink();
       }finally{
         lock(false);
       }
     });
 
-    function lock(v){
-      choose.disabled=v; send.disabled=v; picker.disabled=v;
+    function lock(v){ choose.disabled=v; send.disabled=v; picker.disabled=v; }
+
+    function showFolderLink(){
+      const a=document.createElement('a');
+      a.href=`https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`;
+      a.target='_blank'; a.rel='noopener noreferrer'; a.className='link';
+      a.textContent='Открыть папку на Диске';
+      progress.appendChild(a);
     }
 
     function uploadOne(file){
@@ -87,7 +95,7 @@
         progress.appendChild(row); progress.appendChild(bar);
 
         const xhr=new XMLHttpRequest();
-        xhr.open('POST','/upload'); // без sid
+        xhr.open('POST','/upload');
         const fd=new FormData(); fd.append('file', file, file.name);
 
         xhr.upload.onprogress=(e)=>{ if(e.lengthComputable){ fill.style.width=(e.loaded/e.total*100)+'%'; } };
@@ -95,14 +103,15 @@
         xhr.onload=()=>{
           try{
             const data = JSON.parse(xhr.responseText||'{}');
-            if(data.ok && Array.isArray(data.files) && data.files.length){
-              const f = data.files[0];
-              if(f.webViewLink){
-                const a=document.createElement('a');
-                a.href=f.webViewLink; a.target='_blank'; a.rel='noopener noreferrer';
-                a.className='link'; a.textContent='Открыть в Google Drive';
-                progress.appendChild(a);
-              }
+            if(data.ok && Array.isArray(data.files)){
+              data.files.forEach(f=>{
+                if(f.webViewLink){
+                  const a=document.createElement('a');
+                  a.href=f.webViewLink; a.target='_blank'; a.rel='noopener noreferrer';
+                  a.className='link'; a.textContent='Открыть файл в Google Drive';
+                  progress.appendChild(a);
+                }
+              });
             }else if(data && data.error){
               const e=document.createElement('div'); e.className='err'; e.textContent='Ошибка: '+data.error;
               progress.appendChild(e);
