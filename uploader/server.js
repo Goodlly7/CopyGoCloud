@@ -13,13 +13,13 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-// --- CORS (по умолчанию всем разрешено; при необходимости сузьте) ---
+// --- CORS ---
 app.use(cors());
 
 // --- Google Drive ---
 function makeDrive() {
-  // Вариант 1: одной переменной GOOGLE_SERVICE_ACCOUNT_JSON (весь JSON как строка)
-  // Вариант 2: парами GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY (с \n)
+  // Вариант 1: GOOGLE_SERVICE_ACCOUNT_JSON = весь JSON сервис-аккаунта строкой
+  // Вариант 2: GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY (с \n)
   const client_email = process.env.GOOGLE_CLIENT_EMAIL;
   let private_key = process.env.GOOGLE_PRIVATE_KEY;
 
@@ -63,13 +63,13 @@ async function findOrCreateFolder(drive, name, parentId) {
   return created.data.id;
 }
 
-// --- Статика (исправлено: корень = uploader/public, индекс = upload.html) ---
-const PUBLIC_DIR = path.join(__dirname, "uploader", "public");
+// --- Статика: так как server.js внутри /uploader, то public = /uploader/public ---
+const PUBLIC_DIR = path.join(__dirname, "public");
 
-// Если нужен именно upload.html как индекс:
+// Раздаём статику; индекс — upload.html (или index.html, если добавишь)
 app.use(express.static(PUBLIC_DIR, { index: ["upload.html", "index.html"] }));
 
-// Фолбэк на случай отсутствия файла, чтобы не падать с ENOENT
+// Фолбэк на корень, чтобы не было ENOENT
 app.get("/", (req, res) => {
   const indexPath = path.join(PUBLIC_DIR, "upload.html");
   if (fs.existsSync(indexPath)) {
@@ -83,9 +83,9 @@ app.get("/", (req, res) => {
 
 app.get("/health", (_, res) => res.json({ ok: true }));
 
-// --- Загрузка ---
+// --- Загрузка на Google Drive ---
 app.post("/upload", async (req, res) => {
-  // sid НЕобязателен — при отсутствии используем yyyy-mm-dd (UTC)
+  // sid НЕобязателен — без него создаём папку по дате (UTC)
   let sid = req.query.sid;
   if (!sid || !String(sid).trim()) {
     const d = new Date();
@@ -103,8 +103,7 @@ app.post("/upload", async (req, res) => {
     return;
   }
 
-  // Лимит размера файла (100 МБ на файл). Можно отрегулировать.
-  const MAX_FILE_BYTES = 100 * 1024 * 1024;
+  const MAX_FILE_BYTES = 100 * 1024 * 1024; // 100 МБ на файл
 
   try {
     const SESSIONS_ROOT_FOLDER = "CopyGoCloud_Sessions";
@@ -122,7 +121,6 @@ app.post("/upload", async (req, res) => {
     bb.on("file", (fieldname, file, info) => {
       const { filename, mimeType } = info;
 
-      // Если прошлый файл превысил лимит — просто дропаем поток
       if (tooLarge) {
         file.resume();
         return;
@@ -153,10 +151,6 @@ app.post("/upload", async (req, res) => {
 
     bb.on("filesLimit", () => {
       uploads.push(Promise.reject(new Error("Too many files")));
-    });
-
-    bb.on("fieldsLimit", () => {
-      // игнорируем — у нас нет обязательных полей
     });
 
     bb.on("close", async () => {
