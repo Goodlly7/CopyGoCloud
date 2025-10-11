@@ -18,6 +18,7 @@
     .btn{appearance:none;border:0;border-radius:12px;padding:14px 18px;font-weight:800;cursor:pointer;font-size:15px;color:#fff;background:linear-gradient(135deg,#06b6d4,#3b82f6);transition:.2s ease}
     .btn:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(59,130,246,.25)}
     .btn.secondary{background:linear-gradient(135deg,#8b5cf6,#ec4899)}
+    .btn[disabled]{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
 
     .chosen{font-size:13px;color:#475569;min-height:18px}
 
@@ -26,6 +27,8 @@
     .bar{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px}
     .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3b82f6,#06b6d4);transition:width .2s}
     .ok{color:#16a34a;font-weight:600;margin-top:10px}
+    .err{color:#ef4444;font-weight:600;margin-top:10px}
+    .link{display:inline-block;margin-top:6px;font-size:13px;text-decoration:none;color:#2563eb}
   </style>
 </head>
 <body>
@@ -61,10 +64,21 @@
 
     send.addEventListener('click',async()=>{
       if(!picker.files.length){ alert('Выберите файлы'); return; }
+      lock(true);
       progress.innerHTML='Начинаем загрузку...';
-      for(const file of picker.files){ await uploadOne(file); }
-      progress.innerHTML+='<div class="ok">Готово ✅</div>';
+      try{
+        for(const file of picker.files){ await uploadOne(file); }
+        progress.innerHTML+='<div class="ok">Готово ✅</div>';
+      }catch(e){
+        progress.innerHTML+='<div class="err">Ошибка: '+(e?.message||e)+'</div>';
+      }finally{
+        lock(false);
+      }
     });
+
+    function lock(v){
+      choose.disabled=v; send.disabled=v; picker.disabled=v;
+    }
 
     function uploadOne(file){
       return new Promise((resolve)=>{
@@ -75,8 +89,29 @@
         const xhr=new XMLHttpRequest();
         xhr.open('POST','/upload'); // без sid
         const fd=new FormData(); fd.append('file', file, file.name);
+
         xhr.upload.onprogress=(e)=>{ if(e.lengthComputable){ fill.style.width=(e.loaded/e.total*100)+'%'; } };
-        xhr.onload=()=>resolve(); xhr.onerror=()=>resolve(); xhr.send(fd);
+
+        xhr.onload=()=>{
+          try{
+            const data = JSON.parse(xhr.responseText||'{}');
+            if(data.ok && Array.isArray(data.files) && data.files.length){
+              const f = data.files[0];
+              if(f.webViewLink){
+                const a=document.createElement('a');
+                a.href=f.webViewLink; a.target='_blank'; a.rel='noopener noreferrer';
+                a.className='link'; a.textContent='Открыть в Google Drive';
+                progress.appendChild(a);
+              }
+            }else if(data && data.error){
+              const e=document.createElement('div'); e.className='err'; e.textContent='Ошибка: '+data.error;
+              progress.appendChild(e);
+            }
+          }catch{}
+          resolve();
+        };
+        xhr.onerror=()=>{ resolve(); };
+        xhr.send(fd);
       });
     }
   </script>
