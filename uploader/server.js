@@ -1,7 +1,7 @@
-// server.js
+// uploader/server.js
 import express from "express";
-import busboy from "busboy";
 import cors from "cors";
+import busboy from "busboy";
 import { google } from "googleapis";
 import path from "path";
 import fs from "fs";
@@ -12,34 +12,72 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-
-// CORS
 app.use(cors());
 
-// -------- Google Drive auth helpers --------
-function makeDrive() {
-  // Вариант 1 (рекомендуется): GOOGLE_SERVICE_ACCOUNT_JSON = весь JSON одной строкой
-  // Вариант 2: GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY (с \n)
-  const client_email = process.env.GOOGLE_CLIENT_EMAIL;
-  let private_key = process.env.GOOGLE_PRIVATE_KEY;
-  if (private_key && private_key.includes("\\n")) private_key = private_key.replace(/\\n/g, "\n");
+const { OAuth2 } = google.auth;
 
-  const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  const credentials = saJson ? JSON.parse(saJson) : { client_email, private_key };
+/* ================= OAuth ================= */
 
-  if (!credentials.client_email || !credentials.private_key) {
-    throw new Error("Missing GOOGLE_CLIENT_EMAIL/GOOGLE_PRIVATE_KEY (или GOOGLE_SERVICE_ACCOUNT_JSON).");
-  }
-
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/drive"]
+// 1) Старт авторизации — получаем согласие и refresh_token
+app.get("/auth", (_req, res) => {
+  const o = new OAuth2(
+    process.env.GOOGLE_OAUTH_CLIENT_ID,
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    process.env.GOOGLE_OAUTH_REDIRECT
+  );
+  const url = o.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    scope: [
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/drive"
+    ]
   });
+  res.redirect(url);
+});
 
-  return google.drive({ version: "v3", auth });
+// 2) Callback — показываем refresh_token один раз
+app.get("/oauth2callback", async (req, res) => {
+  try {
+    const o = new OAuth2(
+      process.env.GOOGLE_OAUTH_CLIENT_ID,
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+      process.env.GOOGLE_OAUTH_REDIRECT
+    );
+    const { tokens } = await o.getToken(req.query.code);
+    res
+      .type("text")
+      .send(
+        "✅ Скопируйте это значение и добавьте на Render как GOOGLE_OAUTH_REFRESH_TOKEN:\n\n" +
+          (tokens.refresh_token || "refresh_token не выдан — повторите, оставив prompt=consent")
+      );
+  } catch (e) {
+    res.status(500).send(String(e?.message || e));
+  }
+});
+
+// 3) Клиент для Drive через OAuth refresh_token
+function makeDrive() {
+  const need = [
+    "GOOGLE_OAUTH_CLIENT_ID",
+    "GOOGLE_OAUTH_CLIENT_SECRET",
+    "GOOGLE_OAUTH_REDIRECT",
+    "GOOGLE_OAUTH_REFRESH_TOKEN",
+  ];
+  for (const k of need) {
+    if (!process.env[k]) throw new Error(`Missing env: ${k}`);
+  }
+  const o = new OAuth2(
+    process.env.GOOGLE_OAUTH_CLIENT_ID,
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    process.env.GOOGLE_OAUTH_REDIRECT
+  );
+  o.setCredentials({ refresh_token: process.env.GOOGLE_OAUTH_REFRESH_TOKEN });
+  return google.drive({ version: "v3", auth: o });
 }
 
-// -------- static --------
+/* =============== static =============== */
+
 const PUBLIC_DIR = path.join(__dirname, "public");
 app.use(express.static(PUBLIC_DIR, { index: ["upload.html", "index.html"] }));
 
@@ -51,82 +89,70 @@ app.get("/", (_req, res) => {
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// Удобный самотест: проверяет доступ и создаёт маленький файл в целевой папке
-app.get("/selftest", async (_req, res) => {
-  try {
-    const drive = makeDrive();
-    const parentId = process.env.SESSIONS_ROOT_PARENT_ID;
-    if (!parentId) return res.status(500).json({ ok:false, error:"SESSIONS_ROOT_PARENT_ID not set" });
+/* =============== upload =============== */
 
-    // проверим, что папка существует
-    await drive.files.get({ fileId: parentId, fields: "id,name" });
-
-    const r = await drive.files.create({
-      requestBody: { name: "copygo_selftest.txt", parents: [parentId] },
-      media: { mimeType: "text/plain", body: Buffer.from("ok " + new Date().toISOString(), "utf8") },
-      fields: "id,name,webViewLink,parents"
-    });
-
-    res.json({ ok: true, created: r.data });
-  } catch (e) {
-    res.status(500).json({ ok:false, error: String(e.message||e) });
-  }
-});
-
-// -------- upload --------
 app.post("/upload", async (req, res) => {
-  // Загружаем БЕЗ подпапок — прямо в SESSIONS_ROOT_PARENT_ID
-  const parentId = process.env.SESSIONS_ROOT_PARENT_ID;
-  if (!parentId) return res.status(500).json({ ok:false, error:"SESSIONS_ROOT_PARENT_ID not set" });
-
   let drive;
   try {
     drive = makeDrive();
   } catch (e) {
-    return res.status(500).json({ ok:false, error:"Drive init: " + e.message });
+    return res.status(500).json({ ok: false, error: "OAuth init: " + e.message });
   }
 
-  const MAX_FILE_BYTES = 100 * 1024 * 1024; // 100 МБ
-
   try {
+    // Папка назначения:
+    // 1) если задана переменная DRIVE_FOLDER_ID — кладём прямо туда
+    // 2) иначе найдём/создадим папку "Прием фотки"
+    let folderId = process.env.DRIVE_FOLDER_ID;
+    if (!folderId) {
+      const name = "Прием фотки";
+      const list = await drive.files.list({
+        q: `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: "files(id,name)",
+        pageSize: 1,
+      });
+      if (list.data.files?.length) {
+        folderId = list.data.files[0].id;
+      } else {
+        const created = await drive.files.create({
+          requestBody: { name, mimeType: "application/vnd.google-apps.folder" },
+          fields: "id",
+        });
+        folderId = created.data.id;
+      }
+    }
+
+    const bb = busboy({ headers: req.headers, limits: { fileSize: 100 * 1024 * 1024 } });
     const uploads = [];
-    const bb = busboy({ headers: req.headers, limits: { fileSize: MAX_FILE_BYTES, files: 100 } });
-    let tooLarge = false;
 
-    bb.on("file", (_fieldname, file, info) => {
+    bb.on("file", (_field, file, info) => {
       const { filename, mimeType } = info || {};
-      if (tooLarge) { file.resume(); return; }
-
-      const p = drive.files.create({
-        requestBody: { name: filename || "file", parents: [parentId] },
-        media: { mimeType: mimeType || "application/octet-stream", body: file },
-        fields: "id,name,mimeType,size,parents,webViewLink"
-      }).then(r => r.data);
-
+      const p = drive.files
+        .create({
+          requestBody: { name: filename || "file", parents: [folderId] },
+          media: { mimeType: mimeType || "application/octet-stream", body: file },
+          fields: "id,name,webViewLink,parents",
+        })
+        .then((r) => r.data);
       uploads.push(p);
-
-      file.on("limit", () => { tooLarge = true; });
-      file.on("error", err => uploads.push(Promise.reject(err)));
     });
 
     bb.on("close", async () => {
       try {
-        if (tooLarge) return res.status(413).json({ ok:false, error:"File too large" });
         const results = await Promise.all(uploads);
-        res.json({ ok:true, files: results });
+        res.json({ ok: true, files: results });
       } catch (e) {
-        res.status(500).json({ ok:false, error: e.message });
+        res.status(500).json({ ok: false, error: e.message });
       }
     });
 
     req.pipe(bb);
   } catch (e) {
-    res.status(500).json({ ok:false, error: e.message });
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
-// -------- start --------
+/* =============== start =============== */
+
 const PORT = process.env.PORT || process.env.RENDER_PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Uploader listening on ${PORT}`);
-});
+app.listen(PORT, "0.0.0.0", () => console.log("Uploader listening on", PORT));
