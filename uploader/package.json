@@ -2,9 +2,7 @@
   "name": "copygo-uploader",
   "private": true,
   "type": "module",
-  "scripts": {
-    "start": "node server.js"
-  },
+  "scripts": { "start": "node server.js" },
   "dependencies": {
     "busboy": "^1.6.0",
     "cors": "^2.8.5",
