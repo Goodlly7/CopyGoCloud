@@ -48,78 +48,88 @@
   </div>
 
   <script>
-    // 👉 ID папки Google Drive (Прием фотки)
-    const DRIVE_FOLDER_ID = '14JmmbXxv9Qxcuab9WYRcXZNyiTqV-FVK';
+    const picker = document.getElementById('picker');
+    const choose = document.getElementById('choose');
+    const send = document.getElementById('send');
+    const chosen = document.getElementById('chosen');
+    const progress = document.getElementById('progress');
 
-    const picker=document.getElementById('picker');
-    const choose=document.getElementById('choose');
-    const send=document.getElementById('send');
-    const chosen=document.getElementById('chosen');
-    const progress=document.getElementById('progress');
+    choose.addEventListener('click', () => picker.click());
 
-    choose.addEventListener('click',()=> picker.click());
-    picker.addEventListener('change',()=>{
-      if(!picker.files.length){ chosen.textContent='Файлы не выбраны'; return; }
-      const names=[...picker.files].slice(0,3).map(f=>f.name);
-      chosen.textContent = picker.files.length>3 ? names.join(', ')+' +' + (picker.files.length-3) : names.join(', ');
+    picker.addEventListener('change', () => {
+      if (!picker.files.length) { chosen.textContent = 'Файлы не выбраны'; return; }
+      const names = [...picker.files].slice(0,3).map(f => f.name);
+      chosen.textContent = picker.files.length > 3
+        ? names.join(', ') + ' +' + (picker.files.length-3)
+        : names.join(', ');
     });
 
-    send.addEventListener('click',async()=>{
-      if(!picker.files.length){ alert('Выберите файлы'); return; }
+    send.addEventListener('click', async () => {
+      if (!picker.files.length) { alert('Выберите файлы'); return; }
       lock(true);
-      progress.innerHTML='Начинаем загрузку...';
-      try{
-        for(const file of picker.files){ await uploadOne(file); }
-        progress.innerHTML+='<div class="ok">Готово ✅</div>';
-        // Всегда показываем ссылку на папку
-        showFolderLink();
-      }finally{
+      progress.innerHTML = 'Начинаем загрузку...';
+      try {
+        for (const file of picker.files) { await uploadOne(file); }
+        progress.innerHTML += '<div class="ok">Готово ✅</div>';
+      } finally {
         lock(false);
       }
     });
 
-    function lock(v){ choose.disabled=v; send.disabled=v; picker.disabled=v; }
+    function lock(v){ choose.disabled = v; send.disabled = v; picker.disabled = v; }
 
-    function showFolderLink(){
-      const a=document.createElement('a');
-      a.href=`https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`;
-      a.target='_blank'; a.rel='noopener noreferrer'; a.className='link';
-      a.textContent='Открыть папку на Диске';
+    function renderFileLink(obj){
+      // Берём любую ссылку, которую вернул сервер (MEGA/S3/что угодно)
+      const href = obj?.url || obj?.link || obj?.publicUrl || obj?.webViewLink || obj?.downloadUrl || null;
+      if (!href) return;
+      const a = document.createElement('a');
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'link';
+      a.textContent = 'Открыть файл';
+      progress.appendChild(a);
+    }
+
+    function renderFolderLink(folderUrl){
+      if (!folderUrl) return;
+      const a = document.createElement('a');
+      a.href = folderUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'link';
+      a.textContent = 'Открыть папку с загрузками';
       progress.appendChild(a);
     }
 
     function uploadOne(file){
-      return new Promise((resolve)=>{
-        const row=document.createElement('div'); row.className='row'; row.textContent=file.name;
-        const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('i'); bar.appendChild(fill);
+      return new Promise((resolve) => {
+        const row = document.createElement('div'); row.className = 'row'; row.textContent = file.name;
+        const bar = document.createElement('div'); bar.className = 'bar'; const fill = document.createElement('i'); bar.appendChild(fill);
         progress.appendChild(row); progress.appendChild(bar);
 
-        const xhr=new XMLHttpRequest();
-        xhr.open('POST','/upload');
-        const fd=new FormData(); fd.append('file', file, file.name);
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload');
+        const fd = new FormData(); fd.append('file', file, file.name);
 
-        xhr.upload.onprogress=(e)=>{ if(e.lengthComputable){ fill.style.width=(e.loaded/e.total*100)+'%'; } };
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) fill.style.width = (e.loaded/e.total*100) + '%';
+        };
 
-        xhr.onload=()=>{
+        xhr.onload = () => {
           try{
-            const data = JSON.parse(xhr.responseText||'{}');
-            if(data.ok && Array.isArray(data.files)){
-              data.files.forEach(f=>{
-                if(f.webViewLink){
-                  const a=document.createElement('a');
-                  a.href=f.webViewLink; a.target='_blank'; a.rel='noopener noreferrer';
-                  a.className='link'; a.textContent='Открыть файл в Google Drive';
-                  progress.appendChild(a);
-                }
-              });
-            }else if(data && data.error){
-              const e=document.createElement('div'); e.className='err'; e.textContent='Ошибка: '+data.error;
+            const data = JSON.parse(xhr.responseText || '{}');
+            if (data.ok){
+              if (Array.isArray(data.files)) data.files.forEach(renderFileLink);
+              if (data.folderUrl) renderFolderLink(data.folderUrl);
+            } else if (data && data.error){
+              const e = document.createElement('div'); e.className = 'err'; e.textContent = 'Ошибка: ' + data.error;
               progress.appendChild(e);
             }
-          }catch{}
+          } catch {}
           resolve();
         };
-        xhr.onerror=()=>{ resolve(); };
+        xhr.onerror = () => resolve();
         xhr.send(fd);
       });
     }
