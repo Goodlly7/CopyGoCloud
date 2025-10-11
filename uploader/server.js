@@ -3,9 +3,24 @@ import express from "express";
 import cors from "cors";
 import busboy from "busboy";
 import { Storage } from "megajs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 app.use(cors());
+
+// === СТАТИКА (uploader/public) ===
+const PUBLIC_DIR = path.join(__dirname, "public");
+app.use(express.static(PUBLIC_DIR, { index: ["upload.html", "index.html"] }));
+
+// Корень -> upload.html
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "upload.html"));
+});
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
@@ -21,31 +36,25 @@ app.post("/upload", async (req, res) => {
       password: process.env.MEGA_PASSWORD,
     });
 
-    // Ждём авторизацию
+    // ждём авторизацию
     await new Promise((resolve, reject) => {
       storage.on("ready", resolve);
       storage.on("error", reject);
     });
 
-    // Находим или создаём папку
-    let folder = storage.root.children.find(f => f.name === (process.env.MEGA_FOLDER || "CopyGo"));
-    if (!folder) {
-      folder = await storage.root.mkdir(process.env.MEGA_FOLDER || "CopyGo");
-    }
+    // находим/создаём папку
+    let folder =
+      storage.root.children.find(f => f.name === (process.env.MEGA_FOLDER || "CopyGo"));
+    if (!folder) folder = await storage.root.mkdir(process.env.MEGA_FOLDER || "CopyGo");
 
-    // Загрузка файла в MEGA
-    const upload = folder.upload(filename);
-    file.pipe(upload);
+    const up = folder.upload(filename);
+    file.pipe(up);
 
     const done = new Promise((resolve, reject) => {
-      upload.on("complete", file => {
-        resolve({
-          name: file.name,
-          size: file.size,
-          url: file.link(), // публичная ссылка
-        });
+      up.on("complete", f => {
+        resolve({ name: f.name, size: f.size, url: f.link() }); // публичная ссылка
       });
-      upload.on("error", reject);
+      up.on("error", reject);
     });
 
     uploads.push(done);
@@ -53,8 +62,8 @@ app.post("/upload", async (req, res) => {
 
   bb.on("close", async () => {
     try {
-      const results = await Promise.all(uploads);
-      res.json({ ok: true, files: results });
+      const files = await Promise.all(uploads);
+      res.json({ ok: true, files });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
     }
