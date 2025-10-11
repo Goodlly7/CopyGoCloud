@@ -1,17 +1,14 @@
 {
-  "name": "copygocloud-uploader",
-  "version": "1.0.0",
+  "name": "copygo-uploader",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
   "scripts": {
-    "start": "node server.js",
-    "build": "echo \"no build step\""
+    "start": "node server.js"
   },
   "dependencies": {
     "busboy": "^1.6.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "googleapis": "^144.0.0"
+    "megajs": "^1.1.3"
   }
 }
