@@ -18,7 +18,7 @@ app.use(cors());
 
 // --- Google Drive ---
 function makeDrive() {
-  // Вариант 1: GOOGLE_SERVICE_ACCOUNT_JSON = весь JSON сервис-аккаунта строкой
+  // Вариант 1: GOOGLE_SERVICE_ACCOUNT_JSON = весь JSON
   // Вариант 2: GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY (с \n)
   const client_email = process.env.GOOGLE_CLIENT_EMAIL;
   let private_key = process.env.GOOGLE_PRIVATE_KEY;
@@ -65,11 +65,9 @@ async function findOrCreateFolder(drive, name, parentId) {
 
 // --- Статика: так как server.js внутри /uploader, то public = /uploader/public ---
 const PUBLIC_DIR = path.join(__dirname, "public");
-
-// Раздаём статику; индекс — upload.html (или index.html, если добавишь)
 app.use(express.static(PUBLIC_DIR, { index: ["upload.html", "index.html"] }));
 
-// Фолбэк на корень, чтобы не было ENOENT
+// Фолбэк на корень
 app.get("/", (req, res) => {
   const indexPath = path.join(PUBLIC_DIR, "upload.html");
   if (fs.existsSync(indexPath)) {
@@ -81,7 +79,43 @@ app.get("/", (req, res) => {
   }
 });
 
-app.get("/health", (_, res) => res.json({ ok: true }));
+// health/ping
+app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/ping", (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+// Самотест: проверяет доступ к целевой папке и создаёт тестовый файл
+app.get("/selftest", async (_req, res) => {
+  try {
+    const drive = makeDrive();
+    const parentId = process.env.SESSIONS_ROOT_PARENT_ID || null;
+
+    let targetFolderId = null;
+    if (parentId) {
+      // пишем прямо в указанную папку
+      await drive.files.get({ fileId: parentId, fields: "id,name" });
+      targetFolderId = parentId;
+    } else {
+      // фолбэк: CopyGoCloud_Sessions/<сегодня>
+      const rootId = await findOrCreateFolder(drive, "CopyGoCloud_Sessions", null);
+      const d = new Date();
+      const sid = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
+        d.getUTCDate()
+      ).padStart(2, "0")}`;
+      targetFolderId = await findOrCreateFolder(drive, sid, rootId);
+    }
+
+    const content = Buffer.from("COPYGO SELFTEST " + new Date().toISOString(), "utf8");
+    const r = await drive.files.create({
+      requestBody: { name: "copygo_selftest.txt", parents: [targetFolderId] },
+      media: { mimeType: "text/plain", body: content },
+      fields: "id,name,parents,webViewLink",
+    });
+
+    res.json({ ok: true, created: r.data, targetFolderId });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
 
 // --- Загрузка на Google Drive ---
 app.post("/upload", async (req, res) => {
@@ -106,9 +140,19 @@ app.post("/upload", async (req, res) => {
   const MAX_FILE_BYTES = 100 * 1024 * 1024; // 100 МБ на файл
 
   try {
-    const SESSIONS_ROOT_FOLDER = "CopyGoCloud_Sessions";
-    const sessionsId = await findOrCreateFolder(drive, SESSIONS_ROOT_FOLDER, null);
-    const sessionId = await findOrCreateFolder(drive, String(sid), sessionsId);
+    // Если задана целевая папка — используем её; иначе старое поведение (CopyGoCloud_Sessions/<дата>)
+    const parentId = process.env.SESSIONS_ROOT_PARENT_ID || null;
+
+    let sessionId;
+    if (parentId) {
+      // по умолчанию раскладываем по подпапкам дат
+      sessionId = await findOrCreateFolder(drive, String(sid), parentId);
+      // если нужно класть прямо в корень parentId — замени строку выше на: sessionId = parentId;
+    } else {
+      const SESSIONS_ROOT_FOLDER = "CopyGoCloud_Sessions";
+      const sessionsId = await findOrCreateFolder(drive, SESSIONS_ROOT_FOLDER, null);
+      sessionId = await findOrCreateFolder(drive, String(sid), sessionsId);
+    }
 
     const uploads = [];
     const bb = busboy({
@@ -119,7 +163,7 @@ app.post("/upload", async (req, res) => {
     let tooLarge = false;
 
     bb.on("file", (fieldname, file, info) => {
-      const { filename, mimeType } = info;
+      const { filename, mimeType } = info || {};
 
       if (tooLarge) {
         file.resume();
@@ -130,7 +174,7 @@ app.post("/upload", async (req, res) => {
         .create({
           requestBody: { name: filename || "file", parents: [sessionId] },
           media: { mimeType: mimeType || "application/octet-stream", body: file },
-          fields: "id,name,mimeType,size",
+          fields: "id,name,mimeType,size,parents,webViewLink",
         })
         .then((r) => r.data);
 
@@ -173,7 +217,7 @@ app.post("/upload", async (req, res) => {
 });
 
 // --- Запуск ---
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || process.env.RENDER_PORT || 8080;
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Uploader listening on ${PORT}`);
 });
